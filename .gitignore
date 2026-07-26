@@ -1,0 +1,25 @@
+# ---- 构建产物 (Maven) ----
+target/
+*.class
+
+# ---- 利用产物 (运行时生成) ----
+poc/probe.jar
+poc/www/
+poc/GenProbe.class
+
+# ---- IDE ----
+.idea/
+.vscode/
+*.iml
+.project
+.classpath
+
+# ---- Maven wrapper ----
+.mvn/
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- 日志 ----
+*.log
