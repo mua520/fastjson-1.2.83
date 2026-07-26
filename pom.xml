@@ -15,8 +15,13 @@
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
+    <!--
+      注意: 靶机运行时 JVM 必须是 OpenJDK 17。
+      Java 8 / Zulu 在 aarch64 上经 /proc/self/fd 解析 jar 返回 NULL, FD 链静默失败。
+      这里把 java.version 设为 17, 让构建产物与运行环境对齐, 避免误用 Java 8 启动靶场。
+    -->
     <properties>
-        <java.version>1.8</java.version>
+        <java.version>17</java.version>
     </properties>
 
     <dependencies>
